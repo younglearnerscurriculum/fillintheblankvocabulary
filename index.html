@@ -23,9 +23,7 @@
     box-shadow:0 6px 18px rgba(31,42,68,.12); padding:12px; position:relative}
   .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 
-  /* Presentation (fullscreen fallback) */
-  .stage.present{position:fixed; inset:0; max-width:none; width:100vw; height:100vh; margin:0; border-radius:0; box-shadow:none; z-index:99999}
-  body.presenting{overflow:hidden}
+  /* Fullscreen removed */
 
   .name-pill{position:absolute;right:12px;top:12px;display:flex;gap:6px;align-items:center;
     background:#f7fbff;border:1px solid var(--stroke);padding:6px 10px;border-radius:999px}
@@ -144,13 +142,12 @@ The [paleontologist] traced the bony [crest]."></textarea>
         <button class="btn b-alt" id="uiPlus1" title="Bigger">A+</button>
       </div>
       <button class="btn b-primary" id="buildBtn">🔨 Build</button>
-      <button class="btn b-alt" id="fsBtn">⤢ Expand</button>
       <button class="btn b-warn" id="clearBtn">🧹 Clear</button>
       <span style="font-size:.85rem;color:#6b7a90">After Build, the builder hides. Use the 🔒 to reopen (teacher PIN required).</span>
     </div>
     <div class="mini-help">
       👤 Name first · 📋 Paste lines with answers in <b>[brackets]</b> ·
-      🔨 <b>Build</b> = make worksheet · ⤢ <b>Expand</b> = bigger view · 🧹 <b>Clear</b> = empty box · A−/A+ = smaller/bigger UI.
+      🔨 <b>Build</b> = make worksheet · 🧹 <b>Clear</b> = empty box · A−/A+ = smaller/bigger UI.
     </div>
   </section>
 
@@ -168,9 +165,8 @@ The [paleontologist] traced the bony [crest]."></textarea>
         <button class="btn b-alt" id="uiPlus2" title="Bigger">A+</button>
       </div>
       <div class="row">
-        <button class="btn b-alt" id="checkBtn">✅ Check</button>
         <button class="btn b-primary" id="submitBtn">📤 Submit</button>
-        <button class="btn b-warn" id="resetBtn">♻️ Reset</button><button class="btn b-alt" id="fsBtn2">⤢ Expand</button>
+        <button class="btn b-warn" id="resetBtn">♻️ Reset</button>
       </div>
       <div class="status" id="status">0 correct · 0 total</div>
     </div>
@@ -204,9 +200,7 @@ The [paleontologist] traced the bony [crest]."></textarea>
   "use strict";
 
   // ===== Config: universal teacher PIN =====
-  const TEACHER_PIN = "81070";
-  const USE_REAL_FULLSCREEN = false;   // keep false for Genially; true will try Fullscreen API
-  const AUTO_EXPAND_ON_BUILD = false;  // keep false so slides remain navigable
+  const TEACHER_PIN = "81070";  // keep false so slides remain navigable
 
   // ===== State =====
   let SUBMITTED_LOCK = false;
@@ -221,11 +215,8 @@ The [paleontologist] traced the bony [crest]."></textarea>
   const statusEl = document.getElementById('status');
   const buildBtn = document.getElementById('buildBtn');
   const clearBtn = document.getElementById('clearBtn');
-  const checkBtn = document.getElementById('checkBtn');
   const submitBtn = document.getElementById('submitBtn');
   const resetBtn = document.getElementById('resetBtn');
-  const fsBtn = document.getElementById('fsBtn');
-  const fsBtn2 = document.getElementById('fsBtn2');
   const unlock = document.getElementById('unlock');
   const bank = document.getElementById('bank');
   const chipsWrap = document.getElementById('chips');
@@ -238,32 +229,6 @@ The [paleontologist] traced the bony [crest]."></textarea>
   const pinField = document.getElementById('pinField');
   const pinOk = document.getElementById('pinOk');
   const pinCancel = document.getElementById('pinCancel');
-
-  // ===== Expand / Presentation handling =====
-  async function startPresentation(){
-    if (USE_REAL_FULLSCREEN) {
-      try{
-        if (document.fullscreenEnabled && stage.requestFullscreen) {
-          await stage.requestFullscreen({navigationUI:'hide'});
-          return true;
-        }
-      } catch(e){
-        console.warn('[YLC] Fullscreen denied:', e && e.message);
-      }
-    }
-    document.body.classList.add('presenting');
-    stage.classList.add('present');
-    return false;
-  }
-  function exitPresentation(){
-    stage.classList.remove('present');
-    document.body.classList.remove('presenting');
-    if (document.fullscreenElement) { document.exitFullscreen?.(); }
-  }
-  function togglePresentation(){
-    if (document.fullscreenElement || stage.classList.contains('present')) { exitPresentation(); }
-    else { startPresentation(); }
-  }
 
   // ===== Helpers =====
   // UI size controls (0=normal, 1=large, 2=xlarge)
@@ -468,7 +433,6 @@ The [paleontologist] traced the bony [crest]."></textarea>
     blanks.forEach(inp => { inp.disabled = SUBMITTED_LOCK; });
 
     // Disable student-side controls when locked
-    checkBtn.disabled = SUBMITTED_LOCK;
     submitBtn.disabled = SUBMITTED_LOCK;
     // Reset is always teacher-only
     resetBtn.disabled = SUBMITTED_LOCK || !TEACHER_MODE;
@@ -496,7 +460,6 @@ The [paleontologist] traced the bony [crest]."></textarea>
     checkAll();
     lockName(true);
     applySubmissionLock(true);
-    exitPresentation(); // collapse expansion so slide controls are available
   });
 
   // Build (auto-hide + word bank). No auto expand to keep slide navigation available.
@@ -515,15 +478,11 @@ The [paleontologist] traced the bony [crest]."></textarea>
     lockName(true); // lock student name right after a successful build
     builder.style.display = 'none';
     sheet.classList.remove('hidden');
-    if (AUTO_EXPAND_ON_BUILD) { await startPresentation(); }
   });
 
   // Buttons (wired below)
   clearBtn.addEventListener('click', () => { source.value=''; });
-  checkBtn.addEventListener('click', checkAll);
   resetBtn.addEventListener('click', resetAll);
-  fsBtn.addEventListener('click', togglePresentation);
-  fsBtn2.addEventListener('click', togglePresentation);
 
   // UI zoom buttons (A− / A+) — work in Builder and Worksheet
   const uiMinus1 = document.getElementById('uiMinus1');
@@ -573,7 +532,6 @@ The [paleontologist] traced the bony [crest]."></textarea>
       lockName(false);
       builder.style.display = '';
       sheet.classList.add('hidden');
-      exitPresentation();
     }
   });
 
@@ -620,7 +578,7 @@ The [paleontologist] traced the bony [crest].`;
       console.assert(!nm, 'name empty blocks build');
     })();
 
-    console.log('%cWorksheet+Bank (drag or type) + Submit lock + Teacher-only Reset + PIN modal + Expand-only + tests passed','color:#2e7d32');
+    console.log('%cWorksheet+Bank (drag or type) + Submit lock + Teacher-only Reset + PIN modal + Expand-only + tests passed (no fullscreen)','color:#2e7d32');
 
     // ---- Reset to classroom start (builder visible) ----
     (function resetForClass(){
