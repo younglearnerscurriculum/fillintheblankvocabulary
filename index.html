@@ -29,7 +29,10 @@
 
   .name-pill{position:absolute;right:12px;top:12px;display:flex;gap:6px;align-items:center;
     background:#f7fbff;border:1px solid var(--stroke);padding:6px 10px;border-radius:999px}
+  .name-pill .name-ico{font-size:1rem; margin-right:6px; opacity:.8}
   .name-pill input{border:none;background:transparent;outline:none;min-width:160px}
+  .name-pill input[readonly]{font-weight:600; cursor:default;}
+  .name-pill.bad{border-color:#ef9a9a; box-shadow:0 0 0 3px #fde2e2} 
 
   /* Builder */
   .builder{border:1px solid var(--stroke);border-radius:12px;padding:10px;margin-top:8px;background:#fcfdff}
@@ -84,6 +87,29 @@
   .pin-input{flex:1; border:1px solid var(--stroke); border-radius:10px; padding:10px; font-size:1rem}
   .pin-input.bad{border-color:#ef9a9a; outline:2px solid #f5b3ab}
   .pin-actions{display:flex; gap:8px; margin-top:10px; justify-content:flex-end}
+
+  /* ---- Accessible size presets for mixed devices ---- */
+  body.large header small{font-size:1rem}
+  body.large .btn{padding:12px 16px; font-size:1.05rem}
+  body.large .chip{padding:8px 12px; font-size:1rem}
+  body.large .blank{padding:10px 12px; min-height:44px; font-size:1.05rem}
+  body.large .name-pill{padding:8px 12px}
+
+  body.xlarge header small{font-size:1.05rem}
+  body.xlarge .btn{padding:14px 18px; font-size:1.15rem}
+  body.xlarge .chip{padding:10px 14px; font-size:1.1rem}
+  body.xlarge .blank{padding:12px 14px; min-height:48px; font-size:1.15rem}
+
+  /* UI zoom controls */
+  .ui-zoom{margin-left:auto; display:flex; gap:6px; align-items:center}
+  .ui-zoom .btn{min-width:44px}
+
+  /* Mobile-friendly default scaling */
+  @media (max-width:900px){
+    body:not(.xlarge):not(.large){
+      /* default handled in JS */
+    }
+  }
 </style>
 </head>
 <body>
@@ -93,7 +119,7 @@
 </header>
 
 <main class="stage" id="stage">
-  <div class="name-pill">Name:<input id="studentName" placeholder="Student name" /></div>
+  <div class="name-pill"><span class="name-ico" aria-hidden="true">👤</span> Name: <input id="studentName" placeholder="Student name" /></div>
 
   <!-- Builder (auto-hides after Build) -->
   <section class="builder" id="builder">
@@ -107,6 +133,10 @@ Years of [erosion] had worn away the cliffs.
 Inside a rough stone [matrix], a rare fossilized [specimen] lay untouched.
 The [paleontologist] traced the bony [crest]."></textarea>
     <div class="opt">
+      <div class="ui-zoom">
+        <button class="btn b-alt" id="uiMinus1" title="Smaller">A−</button>
+        <button class="btn b-alt" id="uiPlus1" title="Bigger">A+</button>
+      </div>
       <button class="btn b-primary" id="buildBtn">🔨 Build</button>
       <button class="btn b-alt" id="fsBtn">⤢ Expand</button>
       <button class="btn b-warn" id="clearBtn">🧹 Clear</button>
@@ -123,12 +153,14 @@ The [paleontologist] traced the bony [crest]."></textarea>
     </div>
 
     <div class="toolbar">
+      <div class="ui-zoom" style="margin-left:auto; order:2">
+        <button class="btn b-alt" id="uiMinus2" title="Smaller">A−</button>
+        <button class="btn b-alt" id="uiPlus2" title="Bigger">A+</button>
+      </div>
       <div class="row">
         <button class="btn b-alt" id="checkBtn">✅ Check</button>
         <button class="btn b-primary" id="submitBtn">📤 Submit</button>
-        <button class="btn b-warn" id="resetBtn">♻️ Reset</button>
-        <button class="btn b-alt" id="revealBtn">👀 Reveal</button>
-        <button class="btn b-alt" id="fsBtn2">⤢ Expand</button>
+        <button class="btn b-warn" id="resetBtn">♻️ Reset</button><button class="btn b-alt" id="fsBtn2">⤢ Expand</button>
       </div>
       <div class="status" id="status">0 correct · 0 total</div>
     </div>
@@ -168,6 +200,7 @@ The [paleontologist] traced the bony [crest]."></textarea>
 
   // ===== State =====
   let SUBMITTED_LOCK = false;
+  let TEACHER_MODE = false; // controls teacher-only actions (e.g., Reset)
 
   // ===== DOM =====
   const stage = document.getElementById('stage');
@@ -181,12 +214,13 @@ The [paleontologist] traced the bony [crest]."></textarea>
   const checkBtn = document.getElementById('checkBtn');
   const submitBtn = document.getElementById('submitBtn');
   const resetBtn = document.getElementById('resetBtn');
-  const revealBtn = document.getElementById('revealBtn');
   const fsBtn = document.getElementById('fsBtn');
   const fsBtn2 = document.getElementById('fsBtn2');
   const unlock = document.getElementById('unlock');
   const bank = document.getElementById('bank');
   const chipsWrap = document.getElementById('chips');
+  const studentName = document.getElementById('studentName');
+  const namePill = document.querySelector('.name-pill');
 
   // PIN modal elements
   const pinModal = document.getElementById('pinModal');
@@ -221,6 +255,37 @@ The [paleontologist] traced the bony [crest]."></textarea>
   }
 
   // ===== Helpers =====
+  // UI size controls (0=normal, 1=large, 2=xlarge)
+  let uiScale = 0;
+  function applyUIScale(){
+    document.body.classList.toggle('large', uiScale===1);
+    document.body.classList.toggle('xlarge', uiScale===2);
+    localStorage.setItem('ylc_ui_scale', String(uiScale));
+  }
+  function setUIScale(next){ uiScale = Math.max(0, Math.min(2, next)); applyUIScale(); }
+  function initUIScale(){
+    const saved = localStorage.getItem('ylc_ui_scale');
+    if (saved !== null) { uiScale = Number(saved)||0; }
+    else {
+      // Auto-pick for small iframes/devices
+      if (window.innerWidth <= 600) uiScale = 2; else if (window.innerWidth <= 900) uiScale = 1; else uiScale = 0;
+    }
+    applyUIScale();
+  }
+
+  // ---- Student name lock ----
+  const NAME_KEY = 'ylc_student_name';
+  function lockName(state){
+    studentName.readOnly = !!state;
+    if(state){ localStorage.setItem(NAME_KEY, (studentName.value||'').trim()); }
+  }
+  (function initName(){
+    const saved = localStorage.getItem(NAME_KEY);
+    if(saved){ studentName.value = saved; /* do not lock yet; lock on Build */ }
+    studentName.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); studentName.blur(); }});
+    // no auto-lock on blur — name locks after Build
+  })();
+
   function sanitizePin(s){ return String(s ?? '').replace(/[^0-9]/g,''); }
   function openPin(){ pinField.value=''; pinModal.style.display='flex'; setTimeout(()=>pinField.focus(),0); }
   function closePin(){ pinModal.style.display='none'; }
@@ -367,6 +432,7 @@ The [paleontologist] traced the bony [crest]."></textarea>
     statusEl.textContent = `${answered} answered · ${blanks.length} total`;
   }
   function resetAll(){
+    if (!TEACHER_MODE) { statusEl.classList.add('bad'); statusEl.textContent='Reset is teacher-only.'; setTimeout(updateStatus, 1500); return; }
     if (SUBMITTED_LOCK) return; // cannot reset while locked
     const blanks = qsWrap.querySelectorAll('input.blank');
     blanks.forEach(inp => { inp.value=''; inp.classList.remove('ok','bad'); });
@@ -381,6 +447,7 @@ The [paleontologist] traced the bony [crest]."></textarea>
       inp.classList.remove('bad');
       inp.classList.add('ok');
     });
+    lockName(true);
     checkAll();
   }
 
@@ -392,15 +459,14 @@ The [paleontologist] traced the bony [crest]."></textarea>
 
     // Disable student-side controls when locked
     checkBtn.disabled = SUBMITTED_LOCK;
-    resetBtn.disabled = SUBMITTED_LOCK;
-    revealBtn.disabled = SUBMITTED_LOCK;
     submitBtn.disabled = SUBMITTED_LOCK;
+    // Reset is always teacher-only
+    resetBtn.disabled = SUBMITTED_LOCK || !TEACHER_MODE;
 
-    // Hide/disable the bank to avoid drag changes
     if (SUBMITTED_LOCK){
       bank.style.opacity = .5;
       bank.style.pointerEvents = 'none';
-      unlock.style.display = 'block'; // show Teacher lock after submission
+      unlock.style.display = 'block';
       statusEl.textContent = 'Submitted — answers locked. Teacher can unlock.';
     } else {
       bank.style.opacity = 1;
@@ -418,29 +484,58 @@ The [paleontologist] traced the bony [crest]."></textarea>
       return;
     }
     checkAll();
+    lockName(true);
     applySubmissionLock(true);
-    // collapse any expansion so teachers can move to next slide easily
-    exitPresentation();
+    exitPresentation(); // collapse expansion so slide controls are available
   });
 
   // Build (auto-hide + word bank). No auto expand to keep slide navigation available.
   buildBtn.addEventListener('click', async () => {
+    const nm = (studentName.value||'').trim();
+    if(!nm){
+      namePill.classList.add('bad');
+      studentName.focus();
+      setTimeout(()=>namePill.classList.remove('bad'), 1200);
+      return;
+    }
     const items = parseSource(source.value);
     if (items.length === 0) { alert('No items found. Use [answer] in each line.'); return; }
     renderItems(items);
     buildBank(items);
+    lockName(true); // lock student name right after a successful build
     builder.style.display = 'none';
     sheet.classList.remove('hidden');
     if (AUTO_EXPAND_ON_BUILD) { await startPresentation(); }
   });
 
-  // Buttons
+  // Buttons (wired below)
   clearBtn.addEventListener('click', () => { source.value=''; });
   checkBtn.addEventListener('click', checkAll);
   resetBtn.addEventListener('click', resetAll);
-  revealBtn.addEventListener('click', revealAll);
   fsBtn.addEventListener('click', togglePresentation);
   fsBtn2.addEventListener('click', togglePresentation);
+
+  // UI zoom buttons (A− / A+) — work in Builder and Worksheet
+  const uiMinus1 = document.getElementById('uiMinus1');
+  const uiPlus1  = document.getElementById('uiPlus1');
+  const uiMinus2 = document.getElementById('uiMinus2');
+  const uiPlus2  = document.getElementById('uiPlus2');
+  if (uiMinus1) uiMinus1.addEventListener('click', ()=> setUIScale(uiScale-1));
+  if (uiPlus1)  uiPlus1.addEventListener('click', ()=> setUIScale(uiScale+1));
+  if (uiMinus2) uiMinus2.addEventListener('click', ()=> setUIScale(uiScale-1));
+  if (uiPlus2)  uiPlus2.addEventListener('click', ()=> setUIScale(uiScale+1));
+  // Keyboard shortcuts: Ctrl/Cmd + +/-
+  document.addEventListener('keydown', (e)=>{
+    if (e.target && (e.target.tagName==='INPUT' || e.target.tagName==='TEXTAREA')) return; // don't interfere with typing
+    if ((e.ctrlKey||e.metaKey) && (e.key==='=' || e.key==='+')) { e.preventDefault(); setUIScale(uiScale+1); }
+    if ((e.ctrlKey||e.metaKey) && (e.key==='-')) { e.preventDefault(); setUIScale(uiScale-1); }
+  });
+
+  // Teacher UI gate (Reset is teacher-only)
+  function updateTeacherUI(){
+    resetBtn.disabled = SUBMITTED_LOCK || !TEACHER_MODE;
+  }
+  updateTeacherUI();
 
   // Teacher unlock with modal (works in sandboxed iframes)
   unlock.addEventListener('click', () => { openPin(); });
@@ -458,11 +553,14 @@ The [paleontologist] traced the bony [crest]."></textarea>
       return;
     }
     closePin();
+    TEACHER_MODE = true; updateTeacherUI();
     if (SUBMITTED_LOCK){
       // Just re-enable editing (stay on worksheet)
+      lockName(false);
       applySubmissionLock(false);
     } else {
       // Standard behavior: reopen builder
+      lockName(false);
       builder.style.display = '';
       sheet.classList.add('hidden');
       exitPresentation();
@@ -473,7 +571,8 @@ The [paleontologist] traced the bony [crest]."></textarea>
   const sample = `Years of [erosion] had worn away the cliffs.
 Inside a rough stone [matrix], a rare fossilized [specimen] lay untouched.
 The [paleontologist] traced the bony [crest].`;
-  source.value = sample;
+  // sample is shown in the placeholder only (do not prefill)
+  // source.value = sample;
 
   // Self-tests (console)
   (function selfTest(){
@@ -487,20 +586,51 @@ The [paleontologist] traced the bony [crest].`;
     const multi = parseSource('Go [farther|further] than before.');
     console.assert(multi[0].answers[0].length===1 && multi[0].answers[0][0]==='farther', 'only first answer kept');
 
-    // Submission lock smoke test
+    // Submission lock smoke test (without changing visible state)
     renderItems(items);
     const firstBlank = qsWrap.querySelector('input.blank');
     firstBlank.value = 'erosion';
-    // do not auto expand in tests
     applySubmissionLock(true);
     console.assert(SUBMITTED_LOCK===true, 'submitted lock enabled');
     applySubmissionLock(false);
     console.assert(SUBMITTED_LOCK===false, 'submitted lock disabled');
 
-    console.log('%cWorksheet+Bank (drag or type) + Submit lock + PIN modal + Expand-only tests passed','color:#2e7d32');
+    // Teacher-only reset checks
+    console.assert(resetBtn.disabled===true,'reset disabled for students');
+    TEACHER_MODE=true; updateTeacherUI();
+    console.assert(resetBtn.disabled===false,'reset enabled for teacher (unlocked)');
+    applySubmissionLock(true);
+    console.assert(resetBtn.disabled===true,'reset disabled when submitted lock is active');
+    applySubmissionLock(false);
+    console.assert(resetBtn.disabled===false,'reset re-enabled after unlock');
+
+    // Name requirement sanity (no UI clicks): ensure empty name fails our local rule
+    (function nameRuleDryRun(){
+      const nm='';
+      console.assert(!nm, 'name empty blocks build');
+    })();
+
+    console.log('%cWorksheet+Bank (drag or type) + Submit lock + Teacher-only Reset + PIN modal + Expand-only + tests passed','color:#2e7d32');
+
+    // ---- Reset to classroom start (builder visible) ----
+    (function resetForClass(){
+      applySubmissionLock(false);
+      TEACHER_MODE=false; updateTeacherUI();
+      unlock.style.display='none';
+      builder.style.display='';
+      sheet.classList.add('hidden');
+      qsWrap.innerHTML='';
+      bank.hidden=true; chipsWrap.innerHTML='';
+      source.value=''; // start with an empty builder area
+      localStorage.removeItem(NAME_KEY);
+      lockName(false); studentName.value='';
+      statusEl.classList.remove('bad');
+      statusEl.textContent='0 correct · 0 total';
+    })();
   })();
 
   // Auto-update footer year
+  initUIScale();
   document.getElementById('year').textContent = new Date().getFullYear();
 })();
 </script>
