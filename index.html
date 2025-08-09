@@ -12,7 +12,8 @@
     --chip-bg:#fff; --chip-ink:#2a518f; --chip-ring:#dbe7ff;
   }
   *{box-sizing:border-box}
-  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Arial}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Arial;overflow:hidden;-ms-overflow-style:none;scrollbar-width:none}
+  html::-webkit-scrollbar, body::-webkit-scrollbar{display:none}
   header{max-width:1280px;margin:8px auto 6px;text-align:center}
   .brand{display:inline-flex;align-items:center;gap:8px;font-weight:700}
   .logo{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;
