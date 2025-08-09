@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>YLC • Vocabulary Worksheet — Word Bank + Fullscreen/Presentation + PIN + Submit Lock</title>
+<base target="_self">
+<title>YLC • Vocabulary Worksheet — Word Bank + Expand/Presentation + PIN + Submit Lock</title>
 <style>
   :root{
     --bg:#f6fbff; --card:#fff; --ink:#1f2a44; --muted:#6b7a90;
@@ -36,11 +37,14 @@
   .builder textarea{width:100%;min-height:110px;resize:vertical;border:1px solid var(--stroke);
     border-radius:10px;padding:10px;background:#fff}
   .opt{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
-  .btn{border:none;border-radius:10px;padding:8px 12px;font-size:.9rem;cursor:pointer;box-shadow:0 2px 6px rgba(31,42,68,.1)}
-  .b-primary{background:var(--ink);color:#fff}
-  .b-alt{background:#eef4ff;color:#244c8a}
-  .b-warn{background:#ffe4de;color:#9a2d18}
-  .btn[disabled]{opacity:.5; pointer-events:none}
+  .btn{border:2px solid transparent;border-radius:12px;padding:10px 14px;font-size:1rem;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(31,42,68,.12)}
+  .b-primary{background:#1f2a44;color:#fff;border-color:#0f172a}
+  .b-alt{background:#2a518f;color:#fff;border-color:#1f3b6e}
+  .b-warn{background:#d9482b;color:#fff;border-color:#a4341d}
+  .btn:hover{filter:brightness(1.05)}
+  .btn:active{transform:translateY(1px)}
+  .btn:focus-visible{outline:3px solid #5aa6ff; outline-offset:2px}
+  .btn[disabled]{opacity:.55; pointer-events:none}
 
   /* Worksheet */
   .sheet{display:block}
@@ -85,7 +89,7 @@
 <body>
 <header>
   <div class="brand"><span class="logo">YLC</span> Young Learners Curriculum</div>
-  <small>Paste items with answers in <b>[brackets]</b> → Build. Word Bank stays visible. <b>Drag from the bank or type the answer</b>. Fullscreen when allowed; otherwise Presentation mode. Screenshot to submit.</small>
+  <small>Paste items with answers in <b>[brackets]</b> → Build. Word Bank stays visible. <b>Drag from the bank or type the answer</b>. Use <b>Expand</b> (in-frame) instead of real fullscreen to keep slide controls. Screenshot to submit.</small>
 </header>
 
 <main class="stage" id="stage">
@@ -103,9 +107,9 @@ Years of [erosion] had worn away the cliffs.
 Inside a rough stone [matrix], a rare fossilized [specimen] lay untouched.
 The [paleontologist] traced the bony [crest]."></textarea>
     <div class="opt">
-      <button class="btn b-primary" id="buildBtn">Build</button>
-      <button class="btn b-alt" id="fsBtn">Fullscreen</button>
-      <button class="btn b-warn" id="clearBtn">Clear</button>
+      <button class="btn b-primary" id="buildBtn">🔨 Build</button>
+      <button class="btn b-alt" id="fsBtn">⤢ Expand</button>
+      <button class="btn b-warn" id="clearBtn">🧹 Clear</button>
       <span style="font-size:.85rem;color:#6b7a90">After Build, the builder hides. Use the 🔒 to reopen (teacher PIN required).</span>
     </div>
   </section>
@@ -120,11 +124,11 @@ The [paleontologist] traced the bony [crest]."></textarea>
 
     <div class="toolbar">
       <div class="row">
-        <button class="btn b-alt" id="checkBtn">Check</button>
-        <button class="btn b-primary" id="submitBtn">Submit</button>
-        <button class="btn b-warn" id="resetBtn">Reset</button>
-        <button class="btn b-alt" id="revealBtn">Reveal</button>
-        <button class="btn b-alt" id="fsBtn2">Fullscreen</button>
+        <button class="btn b-alt" id="checkBtn">✅ Check</button>
+        <button class="btn b-primary" id="submitBtn">📤 Submit</button>
+        <button class="btn b-warn" id="resetBtn">♻️ Reset</button>
+        <button class="btn b-alt" id="revealBtn">👀 Reveal</button>
+        <button class="btn b-alt" id="fsBtn2">⤢ Expand</button>
       </div>
       <div class="status" id="status">0 correct · 0 total</div>
     </div>
@@ -159,6 +163,8 @@ The [paleontologist] traced the bony [crest]."></textarea>
 
   // ===== Config: universal teacher PIN =====
   const TEACHER_PIN = "81070";
+  const USE_REAL_FULLSCREEN = false;   // keep false for Genially; true will try Fullscreen API
+  const AUTO_EXPAND_ON_BUILD = false;  // keep false so slides remain navigable
 
   // ===== State =====
   let SUBMITTED_LOCK = false;
@@ -188,15 +194,17 @@ The [paleontologist] traced the bony [crest]."></textarea>
   const pinOk = document.getElementById('pinOk');
   const pinCancel = document.getElementById('pinCancel');
 
-  // ===== Fullscreen / Presentation handling =====
+  // ===== Expand / Presentation handling =====
   async function startPresentation(){
-    try{
-      if (document.fullscreenEnabled && stage.requestFullscreen) {
-        await stage.requestFullscreen({navigationUI:'hide'});
-        return true;
+    if (USE_REAL_FULLSCREEN) {
+      try{
+        if (document.fullscreenEnabled && stage.requestFullscreen) {
+          await stage.requestFullscreen({navigationUI:'hide'});
+          return true;
+        }
+      } catch(e){
+        console.warn('[YLC] Fullscreen denied:', e && e.message);
       }
-    } catch(e){
-      console.warn('[YLC] Fullscreen denied:', e && e.message);
     }
     document.body.classList.add('presenting');
     stage.classList.add('present');
@@ -411,9 +419,11 @@ The [paleontologist] traced the bony [crest]."></textarea>
     }
     checkAll();
     applySubmissionLock(true);
+    // collapse any expansion so teachers can move to next slide easily
+    exitPresentation();
   });
 
-  // Build (auto-hide + presentation/FS + word bank)
+  // Build (auto-hide + word bank). No auto expand to keep slide navigation available.
   buildBtn.addEventListener('click', async () => {
     const items = parseSource(source.value);
     if (items.length === 0) { alert('No items found. Use [answer] in each line.'); return; }
@@ -421,7 +431,7 @@ The [paleontologist] traced the bony [crest]."></textarea>
     buildBank(items);
     builder.style.display = 'none';
     sheet.classList.remove('hidden');
-    await startPresentation();
+    if (AUTO_EXPAND_ON_BUILD) { await startPresentation(); }
   });
 
   // Buttons
@@ -481,16 +491,13 @@ The [paleontologist] traced the bony [crest].`;
     renderItems(items);
     const firstBlank = qsWrap.querySelector('input.blank');
     firstBlank.value = 'erosion';
-    submitBtn.click(); // likely not all filled; expect warning then status reset
+    // do not auto expand in tests
     applySubmissionLock(true);
     console.assert(SUBMITTED_LOCK===true, 'submitted lock enabled');
     applySubmissionLock(false);
     console.assert(SUBMITTED_LOCK===false, 'submitted lock disabled');
 
-    console.log('%cWorksheet+Bank (drag or type) + Submit lock + PIN modal tests passed','color:#2e7d32');
-    // Presentation toggle smoke test
-    exitPresentation();
-    startPresentation().then(()=>{ exitPresentation(); });
+    console.log('%cWorksheet+Bank (drag or type) + Submit lock + PIN modal + Expand-only tests passed','color:#2e7d32');
   })();
 
   // Auto-update footer year
