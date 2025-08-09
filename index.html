@@ -40,6 +40,10 @@
   .builder textarea{width:100%;min-height:110px;resize:vertical;border:1px solid var(--stroke);
     border-radius:10px;padding:10px;background:#fff}
   .opt{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+  
+  
+  .mini-help{margin-top:6px;color:#6b7a90;font-size:.85rem}
+  
   .btn{border:2px solid transparent;border-radius:12px;padding:10px 14px;font-size:1rem;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(31,42,68,.12)}
   .b-primary{background:#1f2a44;color:#fff;border-color:#0f172a}
   .b-alt{background:#2a518f;color:#fff;border-color:#1f3b6e}
@@ -115,7 +119,9 @@
 <body>
 <header>
   <div class="brand"><span class="logo">YLC</span> Young Learners Curriculum</div>
-  <small>Paste items with answers in <b>[brackets]</b> → Build. Word Bank stays visible. <b>Drag from the bank or type the answer</b>. Use <b>Expand</b> (in-frame) instead of real fullscreen to keep slide controls. Screenshot to submit.</small>
+  <small>
+    <b>Directions:</b> <u>Write your name</u>. <u>Copy your text</u> into the Builder, then click <b>Build</b>. Drag from the bank or type the answer. <b>Screenshot to submit.</b>
+  </small>
 </header>
 
 <main class="stage" id="stage">
@@ -141,6 +147,10 @@ The [paleontologist] traced the bony [crest]."></textarea>
       <button class="btn b-alt" id="fsBtn">⤢ Expand</button>
       <button class="btn b-warn" id="clearBtn">🧹 Clear</button>
       <span style="font-size:.85rem;color:#6b7a90">After Build, the builder hides. Use the 🔒 to reopen (teacher PIN required).</span>
+    </div>
+    <div class="mini-help">
+      👤 Name first · 📋 Paste lines with answers in <b>[brackets]</b> ·
+      🔨 <b>Build</b> = make worksheet · ⤢ <b>Expand</b> = bigger view · 🧹 <b>Clear</b> = empty box · A−/A+ = smaller/bigger UI.
     </div>
   </section>
 
@@ -221,6 +231,7 @@ The [paleontologist] traced the bony [crest]."></textarea>
   const chipsWrap = document.getElementById('chips');
   const studentName = document.getElementById('studentName');
   const namePill = document.querySelector('.name-pill');
+  
 
   // PIN modal elements
   const pinModal = document.getElementById('pinModal');
@@ -348,7 +359,8 @@ The [paleontologist] traced the bony [crest]."></textarea>
           inp.setAttribute('data-answers', JSON.stringify(p.answers));
           inp.autocomplete = 'off';
           inp.placeholder = '_____';
-          // allow typing
+          inp.readOnly = false; // both allowed: drag or type
+          // typing
           inp.addEventListener('input', () => { inp.classList.remove('ok','bad'); updateStatus(); });
           // drag target
           inp.addEventListener('dragover', e => e.preventDefault());
@@ -357,10 +369,8 @@ The [paleontologist] traced the bony [crest]."></textarea>
             const word = e.dataTransfer.getData('text/plain');
             if (word) { setBlank(inp, word); }
           });
-          // quick clear
-          inp.addEventListener('keydown', e => {
-            if (e.key === 'Escape') { inp.value=''; inp.classList.remove('ok','bad'); updateStatus(); }
-          });
+          // quick clear helpers
+          inp.addEventListener('keydown', e => { if (e.key === 'Escape') { inp.value=''; inp.classList.remove('ok','bad'); updateStatus(); } });
           inp.addEventListener('dblclick', () => { inp.value=''; inp.classList.remove('ok','bad'); updateStatus(); });
           q.appendChild(inp);
         }
@@ -373,6 +383,7 @@ The [paleontologist] traced the bony [crest]."></textarea>
 
   // ===== Word Bank (persistent, non-consuming) =====
   function buildBank(items){
+    
     const map = Object.create(null);
     items.forEach(it => {
       it.answers.forEach(alts => {
@@ -391,7 +402,6 @@ The [paleontologist] traced the bony [crest]."></textarea>
       chip.setAttribute('draggable','true');
       chip.dataset.word = word;
       chip.innerHTML = `${word} <span class="count">×${map[word]}</span>`;
-      // drag only (no click-to-fill)
       chip.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', word); });
       chipsWrap.appendChild(chip);
     }
@@ -524,7 +534,7 @@ The [paleontologist] traced the bony [crest]."></textarea>
   if (uiPlus1)  uiPlus1.addEventListener('click', ()=> setUIScale(uiScale+1));
   if (uiMinus2) uiMinus2.addEventListener('click', ()=> setUIScale(uiScale-1));
   if (uiPlus2)  uiPlus2.addEventListener('click', ()=> setUIScale(uiScale+1));
-  // Keyboard shortcuts: Ctrl/Cmd + +/-
+
   document.addEventListener('keydown', (e)=>{
     if (e.target && (e.target.tagName==='INPUT' || e.target.tagName==='TEXTAREA')) return; // don't interfere with typing
     if ((e.ctrlKey||e.metaKey) && (e.key==='=' || e.key==='+')) { e.preventDefault(); setUIScale(uiScale+1); }
