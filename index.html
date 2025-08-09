@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>YLC • Vocabulary Worksheet — Word Bank + Fullscreen/Presentation + PIN + Submit Lock</title>
+<style>
+  :root{
+    --bg:#f6fbff; --card:#fff; --ink:#1f2a44; --muted:#6b7a90;
+    --accent:#5aa6ff; --ok:#2e7d32; --warn:#c0392b; --r:14px; --stroke:#dbe7ff;
+    --chip-bg:#fff; --chip-ink:#2a518f; --chip-ring:#dbe7ff;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Arial}
+  header{max-width:1280px;margin:8px auto 6px;text-align:center}
+  .brand{display:inline-flex;align-items:center;gap:8px;font-weight:700}
+  .logo{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;
+        background:#1f2a44;color:#fff;font-size:.8rem;letter-spacing:.5px}
+  header small{display:block;color:var(--muted);margin-top:2px;font-size:.9rem}
+
+  .stage{max-width:1280px;margin:0 auto;background:var(--card);border-radius:14px;
+    box-shadow:0 6px 18px rgba(31,42,68,.12); padding:12px; position:relative}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+  /* Presentation (fullscreen fallback) */
+  .stage.present{position:fixed; inset:0; max-width:none; width:100vw; height:100vh; margin:0; border-radius:0; box-shadow:none; z-index:99999}
+  body.presenting{overflow:hidden}
+
+  .name-pill{position:absolute;right:12px;top:12px;display:flex;gap:6px;align-items:center;
+    background:#f7fbff;border:1px solid var(--stroke);padding:6px 10px;border-radius:999px}
+  .name-pill input{border:none;background:transparent;outline:none;min-width:160px}
+
+  /* Builder */
+  .builder{border:1px solid var(--stroke);border-radius:12px;padding:10px;margin-top:8px;background:#fcfdff}
+  .builder h3{margin:0 0 6px;font-size:1rem}
+  .builder textarea{width:100%;min-height:110px;resize:vertical;border:1px solid var(--stroke);
+    border-radius:10px;padding:10px;background:#fff}
+  .opt{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+  .btn{border:none;border-radius:10px;padding:8px 12px;font-size:.9rem;cursor:pointer;box-shadow:0 2px 6px rgba(31,42,68,.1)}
+  .b-primary{background:var(--ink);color:#fff}
+  .b-alt{background:#eef4ff;color:#244c8a}
+  .b-warn{background:#ffe4de;color:#9a2d18}
+  .btn[disabled]{opacity:.5; pointer-events:none}
+
+  /* Worksheet */
+  .sheet{display:block}
+  .sheet.hidden{display:none}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0 10px}
+  .status{margin-left:auto;font-size:.92rem;color:var(--muted)}
+  .status.bad{color:var(--warn)}
+  .success{background:#e9f7ef;color:#1b5e20;padding:8px 10px;border-radius:10px}
+  .qs{display:flex;flex-direction:column;gap:10px}
+  .q{border:1px dashed #cfe0fa;border-radius:10px;padding:10px;background:#fff}
+  .q .num{font-weight:600;margin-right:6px}
+  .blank{border:1px solid var(--stroke);border-radius:8px;padding:6px 8px;min-width:120px}
+  .ok{outline:2px solid #a5d6a7}
+  .bad{outline:2px solid #ef9a9a}
+
+  /* Word bank (persistent & non-consuming) */
+  .bank{border:1px solid var(--stroke);border-radius:12px;padding:8px;margin:6px 0;background:#fcfdff; transition:opacity .2s ease}
+  .bank .label{font-size:.9rem;color:#4663a0;margin:0 0 6px 2px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{user-select:none;display:inline-flex;align-items:center;gap:6px;
+    background:var(--chip-bg); color:var(--chip-ink);
+    border:1px solid var(--chip-ring); padding:6px 10px; border-radius:999px;
+    font-size:.92rem; cursor:grab}
+  .chip:active{cursor:grabbing}
+  .count{font-size:.75rem; color:#64748b; background:#eef4ff; border-radius:999px; padding:2px 6px}
+
+  .lock{position:absolute;right:12px;bottom:12px;font-size:.85rem;color:#4663a0;cursor:pointer; display:none}
+  footer{max-width:1280px;margin:8px auto 10px;text-align:center;color:#6b7a90;font-size:.9rem}
+
+  /* PIN modal */
+  .pin-backdrop{position:fixed; inset:0; background:rgba(0,0,0,.25);
+    display:none; align-items:center; justify-content:center; z-index:100000}
+  .pin-card{background:#fff; border:1px solid var(--stroke); border-radius:12px;
+    box-shadow:0 10px 30px rgba(31,42,68,.2); padding:16px; width:min(360px,90vw)}
+  .pin-card h4{margin:0 0 10px; font-size:1rem}
+  .pin-row{display:flex; gap:8px; align-items:center}
+  .pin-input{flex:1; border:1px solid var(--stroke); border-radius:10px; padding:10px; font-size:1rem}
+  .pin-input.bad{border-color:#ef9a9a; outline:2px solid #f5b3ab}
+  .pin-actions{display:flex; gap:8px; margin-top:10px; justify-content:flex-end}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="logo">YLC</span> Young Learners Curriculum</div>
+  <small>Paste items with answers in <b>[brackets]</b> → Build. Word Bank stays visible. <b>Drag from the bank or type the answer</b>. Fullscreen when allowed; otherwise Presentation mode. Screenshot to submit.</small>
+</header>
+
+<main class="stage" id="stage">
+  <div class="name-pill">Name:<input id="studentName" placeholder="Student name" /></div>
+
+  <!-- Builder (auto-hides after Build) -->
+  <section class="builder" id="builder">
+    <h3>Builder</h3>
+    <p style="font-size:.85rem;color:#6b7a90">
+      One item per line. Put the correct answer in <b>[brackets]</b>.
+      <b>Note:</b> Alternatives using a pipe (e.g., <code>[farther|further]</code>) are <u>ignored</u>; only the <i>first</i> answer is used.
+    </p>
+    <textarea id="source" placeholder="Example:
+Years of [erosion] had worn away the cliffs.
+Inside a rough stone [matrix], a rare fossilized [specimen] lay untouched.
+The [paleontologist] traced the bony [crest]."></textarea>
+    <div class="opt">
+      <button class="btn b-primary" id="buildBtn">Build</button>
+      <button class="btn b-alt" id="fsBtn">Fullscreen</button>
+      <button class="btn b-warn" id="clearBtn">Clear</button>
+      <span style="font-size:.85rem;color:#6b7a90">After Build, the builder hides. Use the 🔒 to reopen (teacher PIN required).</span>
+    </div>
+  </section>
+
+  <!-- Worksheet -->
+  <section class="sheet hidden" id="sheet" aria-live="polite">
+    <!-- Word Bank -->
+    <div class="bank" id="bank" hidden>
+      <div class="label">Word Bank (drag to fill, or type into the blanks):</div>
+      <div class="chips" id="chips"></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="row">
+        <button class="btn b-alt" id="checkBtn">Check</button>
+        <button class="btn b-primary" id="submitBtn">Submit</button>
+        <button class="btn b-warn" id="resetBtn">Reset</button>
+        <button class="btn b-alt" id="revealBtn">Reveal</button>
+        <button class="btn b-alt" id="fsBtn2">Fullscreen</button>
+      </div>
+      <div class="status" id="status">0 correct · 0 total</div>
+    </div>
+
+    <div class="qs" id="qs"></div>
+    <div class="footer-note" style="color:#6b7a90"><strong>Students:</strong> please <b>take a screenshot</b> of your completed worksheet and <b>send your answers to your teacher</b>.</div>
+  </section>
+
+  <div class="lock" id="unlock" title="Teacher: unlock editing or show builder">🔒 Teacher</div>
+
+  <!-- Teacher PIN Modal -->
+  <div id="pinModal" class="pin-backdrop" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
+    <div class="pin-card">
+      <h4 id="pinTitle">Enter teacher PIN</h4>
+      <div class="pin-row">
+        <input id="pinField" class="pin-input" inputmode="numeric" autocomplete="one-time-code"
+               placeholder="•••••" aria-label="Teacher PIN">
+      </div>
+      <div class="pin-actions">
+        <button id="pinCancel" class="btn b-warn" type="button">Cancel</button>
+        <button id="pinOk" class="btn b-primary" type="button">Unlock</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>© <span id="year">2025</span> Young Learners Curriculum — All rights reserved.</footer>
+
+<script>
+(() => {
+  "use strict";
+
+  // ===== Config: universal teacher PIN =====
+  const TEACHER_PIN = "81070";
+
+  // ===== State =====
+  let SUBMITTED_LOCK = false;
+
+  // ===== DOM =====
+  const stage = document.getElementById('stage');
+  const builder = document.getElementById('builder');
+  const sheet = document.getElementById('sheet');
+  const source = document.getElementById('source');
+  const qsWrap = document.getElementById('qs');
+  const statusEl = document.getElementById('status');
+  const buildBtn = document.getElementById('buildBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const checkBtn = document.getElementById('checkBtn');
+  const submitBtn = document.getElementById('submitBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const revealBtn = document.getElementById('revealBtn');
+  const fsBtn = document.getElementById('fsBtn');
+  const fsBtn2 = document.getElementById('fsBtn2');
+  const unlock = document.getElementById('unlock');
+  const bank = document.getElementById('bank');
+  const chipsWrap = document.getElementById('chips');
+
+  // PIN modal elements
+  const pinModal = document.getElementById('pinModal');
+  const pinField = document.getElementById('pinField');
+  const pinOk = document.getElementById('pinOk');
+  const pinCancel = document.getElementById('pinCancel');
+
+  // ===== Fullscreen / Presentation handling =====
+  async function startPresentation(){
+    try{
+      if (document.fullscreenEnabled && stage.requestFullscreen) {
+        await stage.requestFullscreen({navigationUI:'hide'});
+        return true;
+      }
+    } catch(e){
+      console.warn('[YLC] Fullscreen denied:', e && e.message);
+    }
+    document.body.classList.add('presenting');
+    stage.classList.add('present');
+    return false;
+  }
+  function exitPresentation(){
+    stage.classList.remove('present');
+    document.body.classList.remove('presenting');
+    if (document.fullscreenElement) { document.exitFullscreen?.(); }
+  }
+  function togglePresentation(){
+    if (document.fullscreenElement || stage.classList.contains('present')) { exitPresentation(); }
+    else { startPresentation(); }
+  }
+
+  // ===== Helpers =====
+  function sanitizePin(s){ return String(s ?? '').replace(/[^0-9]/g,''); }
+  function openPin(){ pinField.value=''; pinModal.style.display='flex'; setTimeout(()=>pinField.focus(),0); }
+  function closePin(){ pinModal.style.display='none'; }
+
+  function allFilled(){
+    const blanks = qsWrap.querySelectorAll('input.blank');
+    for (const b of blanks){ if(!(b.value||'').trim()) return false; }
+    return blanks.length>0;
+  }
+
+  // ===== Parse lines with [answer] (single correct answer only) =====
+  function parseSource(text){
+    const lines = text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+    const items = [];
+    const re = /\[([^\]]+)\]/g;
+    let ignoredAlternatives = 0;
+    for (const line of lines) {
+      let idx = 0, m; const parts = []; const answers = [];
+      while ((m = re.exec(line)) !== null) {
+        const before = line.slice(idx, m.index);
+        if (before) parts.push({type:'text', value: before});
+        const raw = m[1];
+        const all = raw.split('|').map(s=>s.trim()).filter(Boolean);
+        const ans = (all[0]||'').toLowerCase();
+        if (all.length > 1) ignoredAlternatives += (all.length - 1);
+        parts.push({type:'blank', answers: [ans]}); // single correct answer only
+        answers.push([ans]);
+        idx = m.index + m[0].length;
+      }
+      const after = line.slice(idx);
+      if (after) parts.push({type:'text', value: after});
+      if (answers.length === 0) continue;
+      items.push({parts, answers});
+    }
+    if (ignoredAlternatives > 0) {
+      console.warn(`[YLC] Ignored ${ignoredAlternatives} alternative answer(s); only the first in [ ] is used.`);
+    }
+    return items;
+  }
+
+  // ===== Render items (typing enabled + drag-to-fill) =====
+  function renderItems(items){
+    qsWrap.innerHTML = '';
+    items.forEach((it, i) => {
+      const q = document.createElement('div');
+      q.className = 'q';
+      const num = document.createElement('span');
+      num.className = 'num';
+      num.textContent = (i+1) + '. ';
+      q.appendChild(num);
+
+      it.parts.forEach(p => {
+        if (p.type === 'text') {
+          const span = document.createElement('span');
+          span.textContent = p.value;
+          q.appendChild(span);
+        } else {
+          const inp = document.createElement('input');
+          inp.className = 'blank';
+          inp.setAttribute('data-answers', JSON.stringify(p.answers));
+          inp.autocomplete = 'off';
+          inp.placeholder = '_____';
+          // allow typing
+          inp.addEventListener('input', () => { inp.classList.remove('ok','bad'); updateStatus(); });
+          // drag target
+          inp.addEventListener('dragover', e => e.preventDefault());
+          inp.addEventListener('drop', e => {
+            e.preventDefault();
+            const word = e.dataTransfer.getData('text/plain');
+            if (word) { setBlank(inp, word); }
+          });
+          // quick clear
+          inp.addEventListener('keydown', e => {
+            if (e.key === 'Escape') { inp.value=''; inp.classList.remove('ok','bad'); updateStatus(); }
+          });
+          inp.addEventListener('dblclick', () => { inp.value=''; inp.classList.remove('ok','bad'); updateStatus(); });
+          q.appendChild(inp);
+        }
+      });
+
+      qsWrap.appendChild(q);
+    });
+    updateStatus();
+  }
+
+  // ===== Word Bank (persistent, non-consuming) =====
+  function buildBank(items){
+    const map = Object.create(null);
+    items.forEach(it => {
+      it.answers.forEach(alts => {
+        const primary = (alts[0]||'').toLowerCase();
+        if (!primary) return;
+        map[primary] = (map[primary]||0) + 1;
+      });
+    });
+    const words = Object.keys(map);
+    if (!words.length) { bank.hidden = true; chipsWrap.innerHTML = ''; return; }
+    bank.hidden = false;
+    chipsWrap.innerHTML = '';
+    for (const word of words.sort(()=>Math.random()-.5)) {
+      const chip = document.createElement('button');
+      chip.className = 'chip';
+      chip.setAttribute('draggable','true');
+      chip.dataset.word = word;
+      chip.innerHTML = `${word} <span class="count">×${map[word]}</span>`;
+      // drag only (no click-to-fill)
+      chip.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', word); });
+      chipsWrap.appendChild(chip);
+    }
+  }
+
+  function setBlank(inp, word){
+    inp.value = word || '';
+    inp.classList.remove('ok','bad');
+    updateStatus();
+  }
+
+  function checkAll(){
+    const blanks = qsWrap.querySelectorAll('input.blank');
+    let correct = 0;
+    blanks.forEach(inp => {
+      const answers = JSON.parse(inp.getAttribute('data-answers'));
+      const val = (inp.value || '').trim().toLowerCase();
+      const ok = answers.includes(val);
+      inp.classList.toggle('ok', ok);
+      inp.classList.toggle('bad', !ok && val.length>0);
+      if (ok) correct++;
+    });
+    statusEl.textContent = `${correct} correct · ${blanks.length} total`;
+    const parent = statusEl.parentElement;
+    parent.querySelector('.success')?.remove();
+    if (blanks.length>0 && correct === blanks.length) {
+      const tag = document.createElement('div');
+      tag.className = 'success';
+      tag.textContent = '🎉 Well done! You finished.';
+      parent.appendChild(tag);
+    }
+  }
+  function updateStatus(){
+    const blanks = qsWrap.querySelectorAll('input.blank');
+    let answered = 0;
+    blanks.forEach(i => { if ((i.value||'').trim()) answered++; });
+    statusEl.classList.remove('bad');
+    statusEl.textContent = `${answered} answered · ${blanks.length} total`;
+  }
+  function resetAll(){
+    if (SUBMITTED_LOCK) return; // cannot reset while locked
+    const blanks = qsWrap.querySelectorAll('input.blank');
+    blanks.forEach(inp => { inp.value=''; inp.classList.remove('ok','bad'); });
+    statusEl.textContent = `0 answered · ${blanks.length} total`;
+  }
+  function revealAll(){
+    if (SUBMITTED_LOCK) return; // cannot reveal while locked
+    const blanks = qsWrap.querySelectorAll('input.blank');
+    blanks.forEach(inp => {
+      const answers = JSON.parse(inp.getAttribute('data-answers'));
+      inp.value = answers[0] || '';
+      inp.classList.remove('bad');
+      inp.classList.add('ok');
+    });
+    checkAll();
+  }
+
+  // ===== Submit & Lock =====
+  function applySubmissionLock(state){
+    SUBMITTED_LOCK = !!state;
+    const blanks = qsWrap.querySelectorAll('input.blank');
+    blanks.forEach(inp => { inp.disabled = SUBMITTED_LOCK; });
+
+    // Disable student-side controls when locked
+    checkBtn.disabled = SUBMITTED_LOCK;
+    resetBtn.disabled = SUBMITTED_LOCK;
+    revealBtn.disabled = SUBMITTED_LOCK;
+    submitBtn.disabled = SUBMITTED_LOCK;
+
+    // Hide/disable the bank to avoid drag changes
+    if (SUBMITTED_LOCK){
+      bank.style.opacity = .5;
+      bank.style.pointerEvents = 'none';
+      unlock.style.display = 'block'; // show Teacher lock after submission
+      statusEl.textContent = 'Submitted — answers locked. Teacher can unlock.';
+    } else {
+      bank.style.opacity = 1;
+      bank.style.pointerEvents = 'auto';
+      unlock.style.display = 'none';
+      updateStatus();
+    }
+  }
+
+  submitBtn.addEventListener('click', () => {
+    if (!allFilled()){
+      statusEl.classList.add('bad');
+      statusEl.textContent = 'Please fill every blank before submitting.';
+      setTimeout(updateStatus, 1800);
+      return;
+    }
+    checkAll();
+    applySubmissionLock(true);
+  });
+
+  // Build (auto-hide + presentation/FS + word bank)
+  buildBtn.addEventListener('click', async () => {
+    const items = parseSource(source.value);
+    if (items.length === 0) { alert('No items found. Use [answer] in each line.'); return; }
+    renderItems(items);
+    buildBank(items);
+    builder.style.display = 'none';
+    sheet.classList.remove('hidden');
+    await startPresentation();
+  });
+
+  // Buttons
+  clearBtn.addEventListener('click', () => { source.value=''; });
+  checkBtn.addEventListener('click', checkAll);
+  resetBtn.addEventListener('click', resetAll);
+  revealBtn.addEventListener('click', revealAll);
+  fsBtn.addEventListener('click', togglePresentation);
+  fsBtn2.addEventListener('click', togglePresentation);
+
+  // Teacher unlock with modal (works in sandboxed iframes)
+  unlock.addEventListener('click', () => { openPin(); });
+  pinCancel.addEventListener('click', () => { closePin(); });
+  pinModal.addEventListener('click', (e) => { if(e.target===pinModal) closePin(); });
+  pinField.addEventListener('keydown', (e) => {
+    if(e.key==='Escape'){ e.preventDefault(); closePin(); }
+    if(e.key==='Enter'){ e.preventDefault(); pinOk.click(); }
+  });
+  pinOk.addEventListener('click', () => {
+    const entered = sanitizePin(pinField.value);
+    if(entered !== TEACHER_PIN){
+      pinField.classList.add('bad');
+      setTimeout(()=>pinField.classList.remove('bad'), 600);
+      return;
+    }
+    closePin();
+    if (SUBMITTED_LOCK){
+      // Just re-enable editing (stay on worksheet)
+      applySubmissionLock(false);
+    } else {
+      // Standard behavior: reopen builder
+      builder.style.display = '';
+      sheet.classList.add('hidden');
+      exitPresentation();
+    }
+  });
+
+  // Sample content (so it runs immediately)
+  const sample = `Years of [erosion] had worn away the cliffs.
+Inside a rough stone [matrix], a rare fossilized [specimen] lay untouched.
+The [paleontologist] traced the bony [crest].`;
+  source.value = sample;
+
+  // Self-tests (console)
+  (function selfTest(){
+    const items = parseSource(sample);
+    console.assert(items.length===3,'parse 3 items');
+    let blanks=0; items.forEach(it=>blanks+=it.answers.length);
+    console.assert(blanks===5,'expect 5 blanks');
+    const map={}; items.forEach(it=>it.answers.forEach(a=>map[(a[0]||'')] = (map[(a[0]||'')]||0)+1));
+    console.assert(Object.keys(map).length===5,'bank has 5 unique words');
+    // Multi-answer is ignored: only first accepted
+    const multi = parseSource('Go [farther|further] than before.');
+    console.assert(multi[0].answers[0].length===1 && multi[0].answers[0][0]==='farther', 'only first answer kept');
+
+    // Submission lock smoke test
+    renderItems(items);
+    const firstBlank = qsWrap.querySelector('input.blank');
+    firstBlank.value = 'erosion';
+    submitBtn.click(); // likely not all filled; expect warning then status reset
+    applySubmissionLock(true);
+    console.assert(SUBMITTED_LOCK===true, 'submitted lock enabled');
+    applySubmissionLock(false);
+    console.assert(SUBMITTED_LOCK===false, 'submitted lock disabled');
+
+    console.log('%cWorksheet+Bank (drag or type) + Submit lock + PIN modal tests passed','color:#2e7d32');
+    // Presentation toggle smoke test
+    exitPresentation();
+    startPresentation().then(()=>{ exitPresentation(); });
+  })();
+
+  // Auto-update footer year
+  document.getElementById('year').textContent = new Date().getFullYear();
+})();
+</script>
+</body>
+</html>
